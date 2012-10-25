@@ -8,8 +8,8 @@ Standards-Version: 3.9.3
 Package: belceboot-common
 Architecture: all
 Depends: ${misc:Depends}
-Description: belceboot common configuration files
- belceboot-common is part of the suite belceboot, the
+Description: belceBOOT common configuration files
+ belceboot-common is part of the suite belceBOOT, the
  network boot manager for sataNAS (the aurex NAS server)
 
 Package: belceboot-nbd

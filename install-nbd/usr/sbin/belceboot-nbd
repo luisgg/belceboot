@@ -107,7 +107,7 @@ fi
 NBD_CONF_DIR="/etc/nbd-server/conf.d"
 . /usr/share/belceboot/belceboot-common
 
-bb_is_true "$BB_WRITE_NBD" || NBD_CONF_DIR="${BB_DRY_DIR}${NBD_CONF_DIR}"
+bb_is_true "$BB_CONFIGURE_NBD" || NBD_CONF_DIR="${BB_DRY_DIR}${NBD_CONF_DIR}"
 		
 case "$1" in
 	add)
