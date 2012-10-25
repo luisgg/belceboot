@@ -1,0 +1,15 @@
+. /etc/belceboot/belceboot.conf
+
+bb_warn_msg(){
+	echo "$1" >&2
+}
+
+bb_is_true(){
+	[ "$1" ] || return 1
+	case "$1" in
+		n|N|no|No|NO|false|False|FALSE)
+			return 1
+		;;
+	esac
+	return 0
+}

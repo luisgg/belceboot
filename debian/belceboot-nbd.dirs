@@ -1,0 +1,3 @@
+/etc/nbd-server/conf.d
+/etc/ltsp
+/var/lib/belceboot-nbd

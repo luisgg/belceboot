@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -e
+
+if [ "$1" = purge ]; then
+	if [ -r /var/lib/belceboot-nbd/belceboot-nbd.log ] ; then
+		grep -v "^[[:blank:]]*$" /var/lib/belceboot-nbd/belceboot-nbd.log |while read f ; do
+			rm -f $f
+		done
+		rm -f /var/lib/belceboot-nbd/belceboot-nbd.log
+	fi
+fi
+
+#DEBHELPER#

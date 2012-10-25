@@ -1,0 +1,146 @@
+#!/bin/sh
+
+nbd_name(){
+	basename "$1" |tr "." "_"
+}
+
+nbd_add(){
+	NBD_FILE="$(readlink -f "$1")"
+	NBD_NAME="$(nbd_name "$1")"
+	if [ ! -e "${NBD_CONF_DIR}/${NBD_NAME}.conf" ] || [ "$FORCE" ] ; then
+		mkdir -p "${NBD_CONF_DIR}"
+		cat << EOF > "${NBD_CONF_DIR}/${NBD_NAME}.conf"
+[bb_${NBD_NAME}]
+exportname = $NBD_FILE
+readonly = true
+EOF
+	else
+		bb_warn_msg "add: Skipping existent file ${NBD_CONF_DIR}/${NBD_NAME}.conf"
+	fi
+
+}
+
+nbd_remove(){
+	rm -f "${NBD_CONF_DIR}/$(nbd_name "$1")"
+}
+
+nbd_configure(){
+	: > /var/lib/belceboot-nbd/belceboot-nbd.log
+	for d in ltsp nbd-server/conf.d ; do
+		for f in $(ls -1 /usr/share/belceboot-nbd/config/$d) ; do
+			echo "/etc/$d/$f" >> /var/lib/belceboot-nbd/belceboot-nbd.log
+			if [ ! -e /etc/$d/$f ] || [ "$FORCE" ] ; then
+				mkdir -p "/etc/$d"
+				sed -e "s%_@_SWAPDIR_@_%$BB_SWAPDIR%g;s%_@_SWAPSIZE_@_%$BB_SWAPSIZE%g" /usr/share/belceboot-nbd/config/$d/$f > /etc/$d/$f
+			else
+				bb_warn_msg "configure: Skipping existent file /etc/$d/$f"
+			fi
+		done
+	done
+}
+
+nbd_purge(){
+	if [ -r /var/lib/belceboot-nbd/belceboot-nbd.log ] ; then
+		grep -v "^[[:blank:]]*$" /var/lib/belceboot-nbd/belceboot-nbd.log |while read f ; do
+			rm -f $f
+		done
+		rm -f /var/lib/belceboot-nbd/belceboot-nbd.log
+	fi
+}
+
+nbd_dis_template(){
+	NBD_FILE="$(readlink -f "$1")"
+	NBD_NAME="$(nbd_name "$1")"
+	NBD_DIR="$(dirname "$NBD_FILE")"
+	touch "$NBD_DIR/$BB_DISABLE_CFG"
+}
+
+nbd_en_template(){
+	NBD_FILE="$(readlink -f "$1")"
+	NBD_NAME="$(nbd_name "$1")"
+	NBD_DIR="$(dirname "$NBD_FILE")"
+	rm -f "$NBD_DIR/$BB_DISABLE_CFG"
+}
+
+nbd_template(){
+	NBD_FILE="$(readlink -f "$1")"
+	NBD_NAME="$(nbd_name "$1")"
+	NBD_DIR="$(dirname "$NBD_FILE")"
+	# generate BB_IMAGE_CFG BB_IMAGE_PX ...
+	if [ ! -e "$NBD_DIR/$BB_IMAGE_CFG" ] || [ "$FORCE" ] ; then
+		cat << EOF > "$NBD_DIR/$BB_IMAGE_CFG"
+NBD_IMAGE="$NBD_FILE"
+KERNEL="$(find "$NBD_DIR" -xtype f -name "vmlinuz*" -printf "%P\n" |sort |tail -1)"
+INITRD="$(find "$NBD_DIR" -xtype f -name "initrd*" -printf "%P\n" |sort |tail -1)"
+EOF
+	else
+		bb_warn_msg "configure: Skipping existent file $NBD_DIR/$BB_IMAGE_CFG"
+	fi
+	if [ ! -e "$NBD_DIR/$BB_IMAGE_PXE" ] || [ "$FORCE" ] ; then
+		cat << EOF > "$NBD_DIR/$BB_IMAGE_PXE"
+[default]
+    label _@_NBD_NAME_@_
+        menu label _@_NBD_NAME_@_
+        kernel _@_KERNEL_@_
+        append ro initrd=_@_INITRD_@_ root=/dev/nbd0 init=/sbin/init-ltsp quiet splash vga=792 xforcevesa vt.handoff=7 nbdroot=_@_BB_NBDSERVER_@_,bb__@_NBD_NAME_@_
+EOF
+	else
+		bb_warn_msg "configure: Skipping existent file $NBD_DIR/$BB_IMAGE_PXE"
+	fi
+}
+
+usage(){
+cat << EOF >&2
+Usage: $(basename "$0") [options] {add|remove|mktemplate|enable|disable} NBD_IMG_FILE
+       $(basename "$0") [options] {configure|purge}
+
+	Available options: --force
+EOF
+}
+
+if [ "$1" = "--force" ] ; 
+	FORCE="Y"
+	shift
+fi
+[ "$1" ] || usage
+
+NBD_CONF_DIR="/etc/nbd-server/conf.d"
+. /usr/share/belceboot/belceboot-common
+
+bb_is_true "$BB_WRITE_NBD" || NBD_CONF_DIR="${BB_DRY_DIR}${NBD_CONF_DIR}"
+		
+case "$1" in
+	add)
+		[ "$2" ] || usage
+		nbd_add "$2"
+		nbd_template "$2"
+		nbd_en_template "$2"
+		;;
+	remove)
+		[ "$2" ] || usage
+		nbd_remove "$2"
+		nbd_dis_template "$2"
+		;;
+	mktemplate)
+		[ "$2" ] || usage
+		nbd_template "$2"
+		;;
+	enable)
+		[ "$2" ] || usage
+		nbd_en_template "$2"
+	disable)
+		[ "$2" ] || usage
+		nbd_dis_template "$2"
+		;;
+	configure)
+		nbd_configure
+		;;
+	purge)
+		nbd_purge
+		;;
+	*)
+		usage
+		;;
+esac
+exit 0
+

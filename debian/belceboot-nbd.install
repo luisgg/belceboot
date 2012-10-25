@@ -1,0 +1,2 @@
+install-swap/nbdswapd	/usr/sbin/
+install-nbd/*		/
