@@ -1,5 +1,73 @@
 #!/bin/sh
 
+nbd_test(){
+	[ -f "$1" ] || return 1
+	file "$1" |grep -i "squashfs" || return 1
+}
+
+nbd_mount(){
+	TMP_MOUNT_DIR="$(mktemp -d)"
+	mount -o loop,ro -t squashfs "$1" "$TMP_MOUNT_DIR" || return 1
+	return 0
+}
+
+nbd_umount(){
+	[ "$TMP_MOUNT_DIR" ] || return 1
+	umount "$TMP_MOUNT_DIR" || true
+}
+
+nbd_list_kernel(){
+	ls -1 $TMP_MOUNT_DIR/boot/vmlinuz-*
+}
+
+nbd_get_kernel(){
+	if [ "$NBD_KVER" ] && [ -r "$TMP_MOUNT_DIR/boot/vmlinuz-$NBD_KVER" ] ; then
+		readlink -f $TMP_MOUNT_DIR/boot/vmlinuz-$NBD_KVER"
+		return 0
+	elif [ "$NBD_KERNEL" ] && [ -r "$NBD_KERNEL" ] ; then
+		readlink -f "$NBD_KERNEL"
+		return 0
+	elif [ -L "$TMP_MOUNT_DIR/boot/vmlinuz" ] ; then
+		readlinf -f "$TMP_MOUNT_DIR/boot/vmlinuz"
+		return 0
+	elif [ $(nbd_list_kernel |wc -l) -eq 1 ]; then
+		readlink -f "$(nbd_list_kernel)"
+		return 0
+	fi
+	return 1
+}
+
+nbd_list_initrd(){
+	ls -1 $TMP_MOUNT_DIR/boot/initrd.img-*
+}
+
+nbd_initrd_from_kernel(){
+	kFILE="$(readlink -f "$1")"
+	INITRD_PATH="$(dirname "$KFILE")"
+	INITRD_NAME="$(basename "$KFILE"|sed -e "s%vmlinuz%initrd.img%")"
+	echo "$INITRD_PATH/$INITRD_NAME"
+}
+
+nbd_get_initrd(){
+	if [ "$NBD_KVER" ] && [ -r "$TMP_MOUNT_DIR/boot/initrd.img-$NBD_KVER" ] ; then
+		readlink -f $TMP_MOUNT_DIR/boot/initrd.img-$NBD_KVER"
+		return 0
+	elif [ "$NBD_INITRD" ] && [ -r "$NBD_INITRD" ] ; then
+		readlink -f "$NBD_INITRD"
+		return 0
+	elif [ "$NBD_KERNEL" ]  && [ -r "$(nbd_initrd_from_kernel "$NBD_KERNEL")" ] ; then
+		"$(nbd_initrd_from_kernel "$NBD_KERNEL")"
+		return 0
+	elif [ -L "$TMP_MOUNT_DIR/boot/initrd.img" ] ; then
+		readlinf -f "$TMP_MOUNT_DIR/boot/initrd.img"
+		return 0
+	elif [ $(nbd_list_initrd |wc -l) -eq 1 ] ; then
+		nbd_list_initrd
+		return 0
+	fi
+	return 1
+}
+
 nbd_name(){
 	basename "$1" |tr "." "_"
 }
@@ -72,15 +140,41 @@ nbd_template(){
 	NBD_FILE="$(readlink -f "$1")"
 	NBD_NAME="$(nbd_name "$1")"
 	NBD_BBDIR="$(nbd_bb_dir "$1")"
-	NBD_DIR="$2"
-	[ "$NBD_DIR" ] && [ -d "$NBD_DIR" ] || 	NBD_DIR="$(dirname "$NBD_FILE")"
+	[ -z "$2" ] || NBD_KERNEL="$2"
+	[ -z "$3" ] || NBD_INITRD="$3"
+	rc=0
+	nbd_test "$NBD_FILE" || usage
+	nbd_mount "$NBD_FILE" || usage
+	NEW_KERNEL="$(nbd_get_kernel)" || rc=$?
+	if [ $rc -ne 0 ] ; then
+		bb_warn_msg "Error: Unable to find kernel file, please specify it"
+		bb_warn_msg "Available kernels in squashfs file are:"
+		nbd_list_kernel
+	else
+		NBD_KERNEL="$NEW_KERNEL"
+		NEW_INITRD="$(nbd_get_initrd)" || rc=$?
+		if [ $rc -ne 0 ] ; then
+			bb_warn_msg "Error: Unable to find initrd file, please specify it"
+			bb_warn_msg "Available initrds in squashfs file are:"
+			nbd_list_initrd
+		else
+			NBD_INITRD="$NEW_INITRD"
+		fi
+	fi
+	if [ $rc -eq 0 ] ; then
+		cp "$NBD_KERNEL" $NBD_BBDIR || usage
+		cp "$NBD_INITRD" $NBD_BBDIR || usage
+	fi
+	nbd_umount "$NBD_FILE"
+	[ $rc -eq 0 ] || return 1
+	
 	# generate BB_IMAGE_CFG BB_IMAGE_PX ...
 	if [ ! -e "$NBD_BBDIR/$BB_IMAGE_CFG" ] || [ "$FORCE" ] ; then
 		cat << EOF > "$NBD_BBDIR/$BB_IMAGE_CFG"
 NBD_IMAGE="$NBD_FILE"
-BOOT_DIR="$NBD_DIR"
-KERNEL="$(find "$NBD_DIR" -xtype f -name "vmlinuz*" -printf "%P\n" |sort |tail -1)"
-INITRD="$(find "$NBD_DIR" -xtype f -name "initrd*" -printf "%P\n" |sort |tail -1)"
+KERNEL="$(basename "$NBD_KERNEL")"
+INITRD="$(basename "$NBD_INITRD")"
+BOOT_DIR="$NBD_BBDIR"
 EOF
 	else
 		bb_warn_msg "configure: Skipping existent file $NBD_BBDIR/$BB_IMAGE_CFG"
@@ -100,22 +194,36 @@ EOF
 
 usage(){
 cat << EOF >&2
-Usage: $(basename "$0") [options] mktemplate NBD_IMG_FILE [KERNEL_DIR]
+Usage: $(basename "$0") [options] mktemplate NBD_IMG_FILE [KERNEL_FILE [INITRD_FILE]]
        $(basename "$0") [options] {export|unexport|enable|disable} NBD_IMG_FILE
        $(basename "$0") [options] {configure|purge}
 
-	Available options: --force
+	Available options: --force, --kversion=VERSION
 EOF
 }
 
-if [ "$1" = "--force" ] ; 
-	FORCE="Y"
+TMP_MOUNT_DIR=""
+NBD_KERNEL=""
+NBD_KVER=""
+NBD_INITRD=""
+
+while echo "$1" |grep -q "^--." ; do
+	case "$1" in
+		--force)
+			FORCE="Y"
+			;;
+		--kversion=*)
+			NBD_KVER=${1#--kversion=}
+			;;
+	esac
 	shift
-fi
+done
+
 [ "$1" ] || usage
 
 NBD_CONF_DIR="/etc/nbd-server/conf.d"
 . /usr/share/belceboot/belceboot-common
+
 
 bb_is_true "$BB_CONFIGURE_NBD" || NBD_CONF_DIR="${BB_DRY_DIR}${NBD_CONF_DIR}"
 		
@@ -130,7 +238,7 @@ case "$1" in
 		;;
 	mktemplate)
 		[ "$2" ] || usage
-		nbd_template "$2" $3
+		nbd_template "$2" $3 $4
 		nbd_en_template "$2"
 		;;
 	enable)
