@@ -1,0 +1,137 @@
+#!/bin/sh
+
+bb_pxe_sections(){
+	sed -ne "/^\[/{s%^\[%%;s%\].*$%%;p}" "$1"
+}
+
+bb_pxe_getsection(){
+	sed -ne "/^\[$1\]/,/^\[/{/^\[/d;p}" "$1"
+}
+
+bb_pxe_cfg(){
+ 	$REL_DIR="$1"
+ 	$PXE_CFG="$2"
+	TMP_PXE="$3"
+	HEAD_FILE=""
+	BOTTOM_FILE=""
+	TMP_FILE="$(tempfile)"
+	for s in $(bb_pxe_sections "$PXE_CFG") ; do
+		for f in $BB_PXE_HEADERS/${s}.head $BB_PXE_HEADERS/default.head ; do
+			if [ -r $f ] ; then
+				HEAD_FILE="$f"
+				break
+			fi
+		done
+		for f in $BB_PXE_HEADERS/${s}.bottom $BB_PXE_HEADERS/default.bottom ; do
+			if [ -r $f ] ; then
+				BOTTOM_FILE="$f"
+				break
+			fi
+		done
+
+		# expand PXE_CFG with header and bottom lines
+		echo "cat <<_@_EOF_@_" > $TMP_FILE
+		[ -z "$HEAD_FILE" ] || cat "$HEAD_FILE" > "$TMP_PXE/$s"
+		bb_pxe_getsection "$PXE_CFG" >> $TMP_FILE
+		[ -z "$BOTTOM_FILE" ] || cat "$BOTTOM_FILE" >> "$TMP_PXE/$s"
+		echo "_@_EOF_@_" >> $TMP_FILE
+		. $TMP_FILE > "$TMP_PXE/$s"
+	done
+	rm -f "$TMP_FILE"
+}
+
+bb_write_fstab(){
+	if bb_is_true "$BB_CONFIGURE_FSTAB" ; then
+		FSTAB_FILE="/etc/fstab"
+	else
+		mkdir -p "${BB_DRY_DIR}/etc/"
+		FSTAB_FILE="${BB_DRY_DIR}/etc/fstab"
+	fi
+	! grep -qF "$1" $FSTAB_FILE || return 0
+	grep -q "$BB_FSTAB_BEGIN" || echo "$BB_FSTAB_BEGIN" >> "$FSTAB_FILE"
+	grep -q "$BB_FSTAB_END" || echo "$BB_FSTAB_END" >> "$FSTAB_FILE"
+	sed -i -e "/$BB_FSTAB_END/i$1" $FSTAB_FILE
+}
+
+bb_tftp_export(){
+	mkdir -p "$BB_TFTP_DIR/$1"
+	bb_write_fstab "$2	$BB_TFTP_DIR/$1	none	bind	0	0"
+}
+
+bb_add_image(){
+	IMG_DIR="$BB_IMAGE_DIR/$1"
+	TMP_PXE="$2"
+	IMG_CFG="$IMG_DIR/$BB_IMAGE_CFG"
+	PXE_CFG="$IMG_DIR/$BB_IMAGE_PXE"
+	NBD_IMAGE=""
+	ISO_IMAGE=""
+	BOOT_DIR=""
+	. $IMG_CFG
+	if [ "$NBD_IMAGE" ] && [ -r "$NBD_IMAGE" ] ; then
+		belceboot-nbd $FORCE export "$NBD_IMAGE"
+	elif [ "$ISO_IMAGE" ] && [ -r "$ISO_IMAGE" ] ; then
+		echo " TODO: write belceboot-iso ...."
+	else
+		bb_warn_msg "add-image: Skipping unknown image file in $1"
+	fi
+	if [ "$BOOT_DIR" ] && [ -d "$BOOT_DIR" ] ; then
+		bb_tftp_export "$1" "$BOOT_DIR"
+	fi
+	if [ -r "$PXE_CFG" ] ; then
+		bb_pxe_cfg  "$1" "$PXE_CFG" "$TMP_PXE"
+
+	fi
+
+}
+
+bb_update(){
+	TMP_PXE="$(mktemp -d)"
+	for d in $(ls -1 "$BB_IMAGE_DIR") ; do
+		if [ -d "$d" ] && [ -r "$BB_IMAGE_DIR/$d/$BB_IMAGE_CFG" ] ; then
+			if bb_is_enabled "$d" ; then
+				bb_info_msg "Processing $d"
+				bb_add_image "$d" "$TMP_PXE"
+			else
+				bb_warn_msg "Skipping disable directory $d"
+			fi
+		fi
+	done
+	for f in $(ls -1 "$TMP_PXE") ; do
+		cp "$TMP_PXE/$f" "$BB_PXE_DIR/$f"
+	done
+	rm -fr "$TMP_PXE"
+}
+
+usage(){
+cat << EOF >&2
+Usage: $(basename "$0") [options] update
+
+        Available options: --force
+EOF
+}
+
+BB_FSTAB_BEGIN="### >>>>> BEGIN_BELCEBOOT_DATA"
+BB_FSTAB_END="### <<<<< END_BELCEBOOT_DATA"
+
+
+if [ "$1" = "--force" ]; then
+	FORCE="--force"
+	shift
+fi
+
+[ "$1" ] || usage
+
+. /usr/share/belceboot/belceboot-common
+
+
+case "$1" in
+	update)
+		bb_update
+		mount -a || true
+		;;
+	*)
+		usage
+		;;
+esac
+exit 0
+

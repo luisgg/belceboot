@@ -22,7 +22,7 @@ nbd_list_kernel(){
 
 nbd_get_kernel(){
 	if [ "$NBD_KVER" ] && [ -r "$TMP_MOUNT_DIR/boot/vmlinuz-$NBD_KVER" ] ; then
-		readlink -f $TMP_MOUNT_DIR/boot/vmlinuz-$NBD_KVER"
+		readlink -f "$TMP_MOUNT_DIR/boot/vmlinuz-$NBD_KVER"
 		return 0
 	elif [ "$NBD_KERNEL" ] && [ -r "$NBD_KERNEL" ] ; then
 		readlink -f "$NBD_KERNEL"
@@ -50,7 +50,7 @@ nbd_initrd_from_kernel(){
 
 nbd_get_initrd(){
 	if [ "$NBD_KVER" ] && [ -r "$TMP_MOUNT_DIR/boot/initrd.img-$NBD_KVER" ] ; then
-		readlink -f $TMP_MOUNT_DIR/boot/initrd.img-$NBD_KVER"
+		readlink -f "$TMP_MOUNT_DIR/boot/initrd.img-$NBD_KVER"
 		return 0
 	elif [ "$NBD_INITRD" ] && [ -r "$NBD_INITRD" ] ; then
 		readlink -f "$NBD_INITRD"
@@ -78,7 +78,7 @@ nbd_bb_dir(){
 	echo "$BBDIR"
 }
 
-nbd_add(){
+nbd_export(){
 	NBD_FILE="$(readlink -f "$1")"
 	NBD_NAME="$(nbd_name "$1")"
 	if [ ! -e "${NBD_CONF_DIR}/${NBD_NAME}.conf" ] || [ "$FORCE" ] ; then
@@ -94,7 +94,7 @@ EOF
 
 }
 
-nbd_remove(){
+nbd_unexport(){
 	rm -f "${NBD_CONF_DIR}/$(nbd_name "$1")"
 }
 
@@ -122,21 +122,7 @@ nbd_purge(){
 	fi
 }
 
-nbd_dis_template(){
-	NBD_FILE="$(readlink -f "$1")"
-	NBD_NAME="$(nbd_name "$1")"
-	NBD_BBDIR="$(nbd_bb_dir "$1")"
-	touch "$NBD_BBDIR/$BB_DISABLE_CFG"
-}
-
-nbd_en_template(){
-	NBD_FILE="$(readlink -f "$1")"
-	NBD_NAME="$(nbd_name "$1")"
-	NBD_BBDIR="$(nbd_bb_dir "$1")"
-	rm -f "$NBD_BBDIR/$BB_DISABLE_CFG"
-}
-
-nbd_template(){
+nbd_add_image(){
 	NBD_FILE="$(readlink -f "$1")"
 	NBD_NAME="$(nbd_name "$1")"
 	NBD_BBDIR="$(nbd_bb_dir "$1")"
@@ -172,8 +158,9 @@ nbd_template(){
 	if [ ! -e "$NBD_BBDIR/$BB_IMAGE_CFG" ] || [ "$FORCE" ] ; then
 		cat << EOF > "$NBD_BBDIR/$BB_IMAGE_CFG"
 NBD_IMAGE="$NBD_FILE"
-KERNEL="$(basename "$NBD_KERNEL")"
-INITRD="$(basename "$NBD_INITRD")"
+NBD_NAME="$NBD_NAME"
+KERNEL="$NBD_NAME/$(basename "$NBD_KERNEL")"
+INITRD="$NBD_NAME/$(basename "$NBD_INITRD")"
 BOOT_DIR="$NBD_BBDIR"
 EOF
 	else
@@ -182,10 +169,10 @@ EOF
 	if [ ! -e "$NBD_BBDIR/$BB_IMAGE_PXE" ] || [ "$FORCE" ] ; then
 		cat << EOF > "$NBD_BBDIR/$BB_IMAGE_PXE"
 [default]
-    label _@_NBD_NAME_@_
-        menu label _@_NBD_NAME_@_
-        kernel _@_KERNEL_@_
-        append ro initrd=_@_INITRD_@_ root=/dev/nbd0 init=/sbin/init-ltsp quiet splash vga=792 xforcevesa vt.handoff=7 nbdroot=_@_BB_NBDSERVER_@_,bb__@_NBD_NAME_@_
+    label \$NBD_NAME
+        menu label \$NBD_NAME
+        kernel \$KERNEL
+        append ro initrd=\$INITRD root=/dev/nbd0 init=/sbin/init-ltsp quiet splash vga=792 xforcevesa vt.handoff=7 nbdroot=\$BB_NBDSERVER,bb_\$NBD_NAME
 EOF
 	else
 		bb_warn_msg "configure: Skipping existent file $NBD_BBDIR/$BB_IMAGE_PXE"
@@ -194,7 +181,7 @@ EOF
 
 usage(){
 cat << EOF >&2
-Usage: $(basename "$0") [options] mktemplate NBD_IMG_FILE [KERNEL_FILE [INITRD_FILE]]
+Usage: $(basename "$0") [options] add_image NBD_IMG_FILE [KERNEL_FILE [INITRD_FILE]]
        $(basename "$0") [options] {export|unexport|enable|disable} NBD_IMG_FILE
        $(basename "$0") [options] {configure|purge}
 
@@ -230,23 +217,23 @@ bb_is_true "$BB_CONFIGURE_NBD" || NBD_CONF_DIR="${BB_DRY_DIR}${NBD_CONF_DIR}"
 case "$1" in
 	export)
 		[ "$2" ] || usage
-		nbd_add "$2"
+		nbd_export "$2"
 		;;
 	unexport)
 		[ "$2" ] || usage
-		nbd_remove "$2"
+		nbd_unexport "$2"
 		;;
-	mktemplate)
+	add-image)
 		[ "$2" ] || usage
-		nbd_template "$2" $3 $4
-		nbd_en_template "$2"
+		nbd_add_image "$2" $3 $4
+		bb_enable "$(nbd_bb_dir "$1")"
 		;;
 	enable)
 		[ "$2" ] || usage
-		nbd_en_template "$2"
+		bb_enable "$(nbd_bb_dir "$1")"
 	disable)
 		[ "$2" ] || usage
-		nbd_dis_template "$2"
+		bb_disable "$(nbd_bb_dir "$1")"
 		;;
 	configure)
 		nbd_configure

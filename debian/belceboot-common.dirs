@@ -1,2 +1,3 @@
 /etc/belceboot/conf.d
 /var/lib/belceboot/simulate
+/usr/share/belceboot/pxelinux.cfg

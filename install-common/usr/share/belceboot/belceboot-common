@@ -4,6 +4,10 @@ bb_warn_msg(){
 	echo "$1" >&2
 }
 
+bb_info_msg(){
+	echo "$1"
+}
+
 bb_is_true(){
 	[ "$1" ] || return 1
 	case "$1" in
@@ -12,4 +16,23 @@ bb_is_true(){
 		;;
 	esac
 	return 0
+}
+
+bb_disable(){
+	BB_DIR="$BB_IMAGE_DIR/$1"
+	[ -d "$BB_DIR" ] || return 0
+        touch "$BB_DIR/$BB_DISABLE_CFG"
+}
+
+bb_enable(){
+	BB_DIR="$BB_IMAGE_DIR/$1"
+	[ -d "$BB_DIR" ] || return 0
+        rm -f "$BB_DIR/$BB_DISABLE_CFG"
+}
+
+bb_is_enabled(){
+	BB_DIR="$BB_IMAGE_DIR/$1"
+	[ -d "$BB_DIR" ] || return 1
+	[ -r "$BB_DIR/$BB_DISABLE_CFG" ] || return 0
+	return 1
 }
