@@ -1,0 +1,7 @@
+menu title Arrancar desde la red
+
+LABEL Main Menu
+      MENU LABEL ^Volver al menu anterior
+      KERNEL vesamenu.c32
+      APPEND pxelinux.cfg/default
+

@@ -8,6 +8,30 @@ bb_pxe_getsection(){
 	sed -ne "/^\[$1\]/,/^\[/{/^\[/d;p}" "$1"
 }
 
+bb_pxe_list_headers(){
+	ls -1 $BB_PXE_HEADERS |grep -v "$BB_PXE_DEFAULT"
+}
+
+bb_pxe_header(){
+	if [ -r "$BB_PXE_HEADERS/$1" ] ; then
+		cat "$BB_PXE_HEADERS/$1"
+	else
+		cat "$BB_PXE_HEADERS/$BB_PXE_DEFAULT"
+	fi
+}
+
+bb_pxe_list_footers(){
+	ls -1 $BB_PXE_FOOTERS |grep -v "$BB_PXE_DEFAULT"
+}
+
+bb_pxe_footer(){
+	if [ -r "$BB_PXE_FOOTERS/$1" ] ; then
+		cat "$BB_PXE_FOOTERS/$1"
+	else
+		cat "$BB_PXE_FOOTERS/$BB_PXE_DEFAULT"
+	fi
+}
+
 bb_pxe_cfg(){
  	$REL_DIR="$1"
  	$PXE_CFG="$2"
@@ -16,26 +40,11 @@ bb_pxe_cfg(){
 	BOTTOM_FILE=""
 	TMP_FILE="$(tempfile)"
 	for s in $(bb_pxe_sections "$PXE_CFG") ; do
-		for f in $BB_PXE_HEADERS/${s}.head $BB_PXE_HEADERS/default.head ; do
-			if [ -r $f ] ; then
-				HEAD_FILE="$f"
-				break
-			fi
-		done
-		for f in $BB_PXE_HEADERS/${s}.bottom $BB_PXE_HEADERS/default.bottom ; do
-			if [ -r $f ] ; then
-				BOTTOM_FILE="$f"
-				break
-			fi
-		done
-
-		# expand PXE_CFG with header and bottom lines
+		# expand PXE_CFG
 		echo "cat <<_@_EOF_@_" > $TMP_FILE
-		[ -z "$HEAD_FILE" ] || cat "$HEAD_FILE" > "$TMP_PXE/$s"
 		bb_pxe_getsection "$PXE_CFG" >> $TMP_FILE
-		[ -z "$BOTTOM_FILE" ] || cat "$BOTTOM_FILE" >> "$TMP_PXE/$s"
 		echo "_@_EOF_@_" >> $TMP_FILE
-		. $TMP_FILE > "$TMP_PXE/$s"
+		. $TMP_FILE >> "$TMP_PXE/$s"
 	done
 	rm -f "$TMP_FILE"
 }
@@ -92,12 +101,15 @@ bb_update(){
 				bb_info_msg "Processing $d"
 				bb_add_image "$d" "$TMP_PXE"
 			else
-				bb_warn_msg "Skipping disable directory $d"
+				bb_warn_msg "Skipping disabled directory $d"
 			fi
 		fi
 	done
-	for f in $(ls -1 "$TMP_PXE") ; do
-		cp "$TMP_PXE/$f" "$BB_PXE_DIR/$f"
+	PXE_FILE_LIST="$({ bb_pxe_list_headers; bb_pxe_list_footers; ls -1 "$TMP_PXE" ; } |sort -u)"
+	for f in $PXE_FILE_LIST ; do
+		bb_pxe_header "$f" > "$BB_PXE_DIR/$f"
+		[ ! -r "$TMP_PXE/$f" ] || cat "$TMP_PXE/$f" >> "$BB_PXE_DIR/$f"
+		bb_pxe_footer "$f" >> "$BB_PXE_DIR/$f"
 	done
 	rm -fr "$TMP_PXE"
 }
