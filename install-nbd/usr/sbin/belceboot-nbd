@@ -225,6 +225,7 @@ case "$1" in
 	enable)
 		[ "$2" ] || usage
 		bb_enable "$(nbd_bb_dir "$1")"
+		;;
 	disable)
 		[ "$2" ] || usage
 		bb_disable "$(nbd_bb_dir "$1")"
