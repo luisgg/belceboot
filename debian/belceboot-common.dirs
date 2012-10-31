@@ -1,3 +1,7 @@
 /etc/belceboot/conf.d
 /var/lib/belceboot/simulate
 /usr/share/belceboot/pxelinux.cfg
+/srv/belceboot/tftpboot
+/srv/belceboot/tftpboot/pxelinux.cfg
+/srv/belceboot/nbd-swap
+/srv/belceboot/images
