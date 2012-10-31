@@ -5,6 +5,14 @@ Maintainer: Luis Antonio Garcia Gisbert <luisgg@gmail.com>
 Build-Depends: debhelper (>= 7.0)
 Standards-Version: 3.9.3
 
+Package: belceboot
+Architecture: all
+Depends: ${misc:Depends}, belceboot-common, belceboot-nbd
+Description: belceBOOT metapackage
+ belceBOOT is a (supernatural) network boot manager
+ that can be used standalone or as addition of
+ sataNAS (the aurex NAS server)
+
 Package: belceboot-common
 Architecture: all
 Depends: ${misc:Depends}, file
