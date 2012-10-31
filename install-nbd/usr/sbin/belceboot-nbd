@@ -167,13 +167,7 @@ EOF
 		bb_warn_msg "configure: Skipping existent file $NBD_BBDIR/$BB_IMAGE_CFG"
 	fi
 	if [ ! -e "$NBD_BBDIR/$BB_IMAGE_PXE" ] || [ "$FORCE" ] ; then
-		cat << EOF > "$NBD_BBDIR/$BB_IMAGE_PXE"
-[default]
-    label \$NBD_NAME
-        menu label \$NBD_NAME
-        kernel \$KERNEL
-        append ro initrd=\$INITRD root=/dev/nbd0 init=/sbin/init-ltsp quiet splash vga=792 xforcevesa vt.handoff=7 nbdroot=\$BB_NBDSERVER,bb_\$NBD_NAME
-EOF
+		cp "$BB_NBD_TEMPLATES/$BB_IMAGE_PXE" "$NBD_BBDIR/$BB_IMAGE_PXE"
 	else
 		bb_warn_msg "configure: Skipping existent file $NBD_BBDIR/$BB_IMAGE_PXE"
 	fi
