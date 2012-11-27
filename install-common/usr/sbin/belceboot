@@ -112,6 +112,10 @@ bb_update(){
 		bb_pxe_footer "$f" >> "$BB_PXE_DIR/$f"
 	done
 	rm -fr "$TMP_PXE"
+
+	if [ "$BB_PXE_BACKGROUND" ] && [ -r "$BB_PXE_BACKGROUND" ] ; then
+		cp "$BB_PXE_BACKGROUND" "$BB_PXE_DIR/bb_back.png"
+	fi
 }
 
 usage(){
