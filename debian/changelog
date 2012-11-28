@@ -1,3 +1,9 @@
+belceboot (0.2) precise; urgency=low
+
+  * Fixed nbd-swap configuration
+
+ -- Luis Antonio Garcia Gisbert <luisgg@gmail.com>  Wed, 28 Nov 2012 17:14:39 +0100
+
 belceboot (0.1) precise; urgency=low
 
   * Initial release.

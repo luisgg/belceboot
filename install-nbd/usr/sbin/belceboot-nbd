@@ -111,6 +111,10 @@ nbd_configure(){
 			fi
 		done
 	done
+	# create swapdir and change permissions
+	mkdir -p $BB_SWAPDIR
+	chgrp nbd $BB_SWAPDIR
+	chmod g=rwx $BB_SWAPDIR
 }
 
 nbd_purge(){
