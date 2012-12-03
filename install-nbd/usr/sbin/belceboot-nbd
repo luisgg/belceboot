@@ -28,7 +28,7 @@ nbd_get_kernel(){
 		readlink -f "$NBD_KERNEL"
 		return 0
 	elif [ -L "$TMP_MOUNT_DIR/boot/vmlinuz" ] ; then
-		readlinf -f "$TMP_MOUNT_DIR/boot/vmlinuz"
+		readlink -f "$TMP_MOUNT_DIR/boot/vmlinuz"
 		return 0
 	elif [ $(nbd_list_kernel |wc -l) -eq 1 ]; then
 		readlink -f "$(nbd_list_kernel)"
@@ -42,7 +42,7 @@ nbd_list_initrd(){
 }
 
 nbd_initrd_from_kernel(){
-	kFILE="$(readlink -f "$1")"
+	KFILE="$(readlink -f "$1")"
 	INITRD_PATH="$(dirname "$KFILE")"
 	INITRD_NAME="$(basename "$KFILE"|sed -e "s%vmlinuz%initrd.img%")"
 	echo "$INITRD_PATH/$INITRD_NAME"
@@ -56,10 +56,10 @@ nbd_get_initrd(){
 		readlink -f "$NBD_INITRD"
 		return 0
 	elif [ "$NBD_KERNEL" ]  && [ -r "$(nbd_initrd_from_kernel "$NBD_KERNEL")" ] ; then
-		"$(nbd_initrd_from_kernel "$NBD_KERNEL")"
+		nbd_initrd_from_kernel "$NBD_KERNEL"
 		return 0
 	elif [ -L "$TMP_MOUNT_DIR/boot/initrd.img" ] ; then
-		readlinf -f "$TMP_MOUNT_DIR/boot/initrd.img"
+		readlink -f "$TMP_MOUNT_DIR/boot/initrd.img"
 		return 0
 	elif [ $(nbd_list_initrd |wc -l) -eq 1 ] ; then
 		nbd_list_initrd
@@ -179,7 +179,7 @@ EOF
 
 usage(){
 cat << EOF >&2
-Usage: $(basename "$0") [options] add_image NBD_IMG_FILE [KERNEL_FILE [INITRD_FILE]]
+Usage: $(basename "$0") [options] add-image NBD_IMG_FILE [KERNEL_FILE [INITRD_FILE]]
        $(basename "$0") [options] {export|unexport|enable|disable} NBD_IMG_FILE
        $(basename "$0") [options] {configure|purge}
 
@@ -223,16 +223,16 @@ case "$1" in
 		;;
 	add-image)
 		[ "$2" ] || usage
-		nbd_add_image "$2" $3 $4
-		bb_enable "$(nbd_bb_dir "$1")"
+		nbd_add_image "$2" "$3" "$4"
+		bb_enable "$(nbd_bb_dir "$2")"
 		;;
 	enable)
 		[ "$2" ] || usage
-		bb_enable "$(nbd_bb_dir "$1")"
+		bb_enable "$(nbd_bb_dir "$2")"
 		;;
 	disable)
 		[ "$2" ] || usage
-		bb_disable "$(nbd_bb_dir "$1")"
+		bb_disable "$(nbd_bb_dir "$2")"
 		;;
 	configure)
 		nbd_configure

@@ -15,7 +15,7 @@ Description: belceBOOT metapackage
 
 Package: belceboot-common
 Architecture: all
-Depends: ${misc:Depends}, file
+Depends: ${misc:Depends}, file, syslinux-common
 Description: belceBOOT common configuration files
  belceboot-common is part of the suite belceBOOT, the
  network boot manager for sataNAS (the aurex NAS server)

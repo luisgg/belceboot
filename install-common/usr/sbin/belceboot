@@ -5,7 +5,7 @@ bb_pxe_sections(){
 }
 
 bb_pxe_getsection(){
-	sed -ne "/^\[$1\]/,/^\[/{/^\[/d;p}" "$1"
+	sed -ne "/^\[$2\]/,/^\[/{/^\[/d;p}" "$1"
 }
 
 bb_pxe_list_headers(){
@@ -33,8 +33,8 @@ bb_pxe_footer(){
 }
 
 bb_pxe_cfg(){
- 	$REL_DIR="$1"
- 	$PXE_CFG="$2"
+ 	REL_DIR="$1"
+ 	PXE_CFG="$2"
 	TMP_PXE="$3"
 	HEAD_FILE=""
 	BOTTOM_FILE=""
@@ -42,7 +42,7 @@ bb_pxe_cfg(){
 	for s in $(bb_pxe_sections "$PXE_CFG") ; do
 		# expand PXE_CFG
 		echo "cat <<_@_EOF_@_" > $TMP_FILE
-		bb_pxe_getsection "$PXE_CFG" >> $TMP_FILE
+		bb_pxe_getsection "$PXE_CFG" "$s" >> $TMP_FILE
 		echo "_@_EOF_@_" >> $TMP_FILE
 		. $TMP_FILE >> "$TMP_PXE/$s"
 	done
@@ -63,8 +63,11 @@ bb_write_fstab(){
 }
 
 bb_tftp_export(){
-	mkdir -p "$BB_TFTP_DIR/$1"
-	bb_write_fstab "$2	$BB_TFTP_DIR/$1	none	bind	0	0"
+	for d in $BB_TFTP_SUBDIRS; do
+		BB_TFTP_DIR="$BB_TFTP_BASE/$d"
+		mkdir -p "$BB_TFTP_DIR/$1"
+		bb_write_fstab "$2	$BB_TFTP_DIR/$1	none	bind	0	0"
+	done
 }
 
 bb_add_image(){
@@ -96,7 +99,7 @@ bb_add_image(){
 bb_update(){
 	TMP_PXE="$(mktemp -d)"
 	for d in $(ls -1 "$BB_IMAGE_DIR") ; do
-		if [ -d "$d" ] && [ -r "$BB_IMAGE_DIR/$d/$BB_IMAGE_CFG" ] ; then
+		if [ -d "$BB_IMAGE_DIR/$d" ] && [ -r "$BB_IMAGE_DIR/$d/$BB_IMAGE_CFG" ] ; then
 			if bb_is_enabled "$d" ; then
 				bb_info_msg "Processing $d"
 				bb_add_image "$d" "$TMP_PXE"
@@ -106,16 +109,28 @@ bb_update(){
 		fi
 	done
 	PXE_FILE_LIST="$({ bb_pxe_list_headers; bb_pxe_list_footers; ls -1 "$TMP_PXE" ; } |sort -u)"
-	for f in $PXE_FILE_LIST ; do
-		bb_pxe_header "$f" > "$BB_PXE_DIR/$f"
-		[ ! -r "$TMP_PXE/$f" ] || cat "$TMP_PXE/$f" >> "$BB_PXE_DIR/$f"
-		bb_pxe_footer "$f" >> "$BB_PXE_DIR/$f"
+	for d in $BB_TFTP_SUBDIRS; do
+		BB_PXE_DIR="$BB_TFTP_BASE/$d/$BB_PXE_SUBDIR"
+		mkdir -p $BB_PXE_DIR
+		for f in $PXE_FILE_LIST ; do
+			bb_pxe_header "$f" > "$BB_PXE_DIR/$f"
+			[ ! -r "$TMP_PXE/$f" ] || cat "$TMP_PXE/$f" >> "$BB_PXE_DIR/$f"
+			bb_pxe_footer "$f" >> "$BB_PXE_DIR/$f"
+		done
+
+		if [ "$BB_PXE_BACKGROUND" ] && [ -r "$BB_PXE_BACKGROUND" ] ; then
+			cp "$BB_PXE_BACKGROUND" "$BB_PXE_DIR/bb_back.png"
+		fi
+		for f in /usr/lib/syslinux/gpxelinux.0 /usr/lib/syslinux/pxelinux.0 ; do
+	                BB_TFTP_DIR="$BB_TFTP_BASE/$d"
+			[ ! -r $f ] || cp $f $BB_TFTP_DIR/
+		done
+		# link default if not present
+		if [ ! -r "$BB_PXE_DIR/default" ] && [ -r "$BB_PXE_DIR/default.$d" ] ; then
+			( cd $BB_PXE_DIR; ln -s default.$d default ) || true
+		fi
 	done
 	rm -fr "$TMP_PXE"
-
-	if [ "$BB_PXE_BACKGROUND" ] && [ -r "$BB_PXE_BACKGROUND" ] ; then
-		cp "$BB_PXE_BACKGROUND" "$BB_PXE_DIR/bb_back.png"
-	fi
 }
 
 usage(){
