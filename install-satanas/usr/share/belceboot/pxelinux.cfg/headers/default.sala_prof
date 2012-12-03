@@ -1,0 +1,19 @@
+default vesamenu.c32
+prompt 0
+
+menu title Menu Sala de Profesores
+menu INCLUDE pxelinux.cfg/bb_graph.conf
+MENU BACKGROUND pxelinux.cfg/bb_back.png
+MENU AUTOBOOT Iniciando Aurex en # segundos
+
+label run
+      menu label ^Otras opciones de arranque por red >>
+      KERNEL vesamenu.c32
+      APPEND pxelinux.cfg/bb_graph.conf pxelinux.cfg/run.menu
+
+label textmenu
+      menu label Menu en modo ^Texto
+      KERNEL menu.c32
+      APPEND pxelinux.cfg/default
+
+

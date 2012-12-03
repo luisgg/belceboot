@@ -57,8 +57,8 @@ bb_write_fstab(){
 		FSTAB_FILE="${BB_DRY_DIR}/etc/fstab"
 	fi
 	! grep -qF "$1" $FSTAB_FILE || return 0
-	grep -q "$BB_FSTAB_BEGIN" || echo "$BB_FSTAB_BEGIN" >> "$FSTAB_FILE"
-	grep -q "$BB_FSTAB_END" || echo "$BB_FSTAB_END" >> "$FSTAB_FILE"
+	grep -q "$BB_FSTAB_BEGIN" "$FSTAB_FILE" || echo "$BB_FSTAB_BEGIN" >> "$FSTAB_FILE"
+	grep -q "$BB_FSTAB_END" "$FSTAB_FILE" || echo "$BB_FSTAB_END" >> "$FSTAB_FILE"
 	sed -i -e "/$BB_FSTAB_END/i$1" $FSTAB_FILE
 }
 
