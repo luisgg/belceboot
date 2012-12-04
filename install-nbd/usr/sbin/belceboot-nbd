@@ -153,7 +153,9 @@ nbd_add_image(){
 	fi
 	if [ $rc -eq 0 ] ; then
 		cp "$NBD_KERNEL" $NBD_BBDIR || usage
+		chmod +r "$NBD_BBDIR/$(basename "$NBD_KERNEL")"
 		cp "$NBD_INITRD" $NBD_BBDIR || usage
+		chmod +r "$NBD_BBDIR/$(basename "$NBD_INITRD")"
 	fi
 	nbd_umount "$NBD_FILE"
 	[ $rc -eq 0 ] || return 1
@@ -163,6 +165,7 @@ nbd_add_image(){
 		cat << EOF > "$NBD_BBDIR/$BB_IMAGE_CFG"
 NBD_IMAGE="$NBD_FILE"
 NBD_NAME="$NBD_NAME"
+NBD_LABEL="$NBD_NAME"
 KERNEL="$NBD_NAME/$(basename "$NBD_KERNEL")"
 INITRD="$NBD_NAME/$(basename "$NBD_INITRD")"
 BOOT_DIR="$NBD_BBDIR"

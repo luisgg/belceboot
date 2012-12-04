@@ -108,6 +108,10 @@ bb_update(){
 			fi
 		fi
 	done
+	PXE_REQUIRED_FILES="/usr/lib/syslinux/gpxelinux.0 /usr/lib/syslinux/pxelinux.0 /usr/lib/syslinux/vesamenu.c32 /usr/lib/syslinux/menu.c32"
+	for f in $PXE_REQUIRED_FILES ; do
+		[ ! -r $f ] || cp $f $BB_TFTP_BASE/
+	done
 	PXE_FILE_LIST="$({ bb_pxe_list_headers; bb_pxe_list_footers; ls -1 "$TMP_PXE" ; } |sort -u)"
 	for d in $BB_TFTP_SUBDIRS; do
 		BB_PXE_DIR="$BB_TFTP_BASE/$d/$BB_PXE_SUBDIR"
@@ -121,9 +125,12 @@ bb_update(){
 		if [ "$BB_PXE_BACKGROUND" ] && [ -r "$BB_PXE_BACKGROUND" ] ; then
 			cp "$BB_PXE_BACKGROUND" "$BB_PXE_DIR/bb_back.png"
 		fi
-		for f in /usr/lib/syslinux/gpxelinux.0 /usr/lib/syslinux/pxelinux.0 ; do
+		for f in $PXE_REQUIRED_FILES ; do
 	                BB_TFTP_DIR="$BB_TFTP_BASE/$d"
-			[ ! -r $f ] || cp $f $BB_TFTP_DIR/
+			if [ -r $f ] ; then
+				F="$(basename "$f")"
+				( cd $BB_TFTP_DIR ; ln -fs ../$F )
+			fi
 		done
 		# link default if not present
 		if [ ! -r "$BB_PXE_DIR/default" ] && [ -r "$BB_PXE_DIR/default.$d" ] ; then

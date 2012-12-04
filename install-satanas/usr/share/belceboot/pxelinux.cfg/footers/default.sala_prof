@@ -1,0 +1,12 @@
+
+label run
+      menu label Menu de Arranque por ^Red >>
+      KERNEL vesamenu.c32
+      APPEND pxelinux.cfg/bb_graph.conf pxelinux.cfg/run.menu
+
+label textmenu
+      menu label Menu en modo ^Texto
+      KERNEL menu.c32
+      APPEND pxelinux.cfg/default
+
+

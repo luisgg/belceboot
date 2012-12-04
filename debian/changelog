@@ -1,3 +1,11 @@
+belceboot (0.7) precise; urgency=low
+
+  * Improved templates
+  * Fix permissions of vmlinuz and initrd.img in belceboot-nbd
+  * Install vesamenu.c32 and menu.c32 in tftp directory 
+
+ -- Luis Antonio Garcia Gisbert <luisgg@gmail.com>  Tue, 04 Dec 2012 02:03:56 +0100
+
 belceboot (0.6) precise; urgency=low
 
   * Fix to allow administrator overrides 
