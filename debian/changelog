@@ -1,3 +1,9 @@
+belceboot (0.8) precise; urgency=low
+
+  * minor fixes in 'belceboot update'
+
+ -- Luis Antonio Garcia Gisbert <luisgg@gmail.com>  Thu, 06 Dec 2012 18:38:30 +0100
+
 belceboot (0.7) precise; urgency=low
 
   * Improved templates

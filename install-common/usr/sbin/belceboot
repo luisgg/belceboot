@@ -74,12 +74,15 @@ bb_add_image(){
 	IMG_DIR="$BB_IMAGE_DIR/$1"
 	TMP_PXE="$2"
 	IMG_CFG="$IMG_DIR/$BB_IMAGE_CFG"
+	USR_IMG_CFG="$IMG_DIR/$BB_USR_IMAGE_CFG"
 	PXE_CFG="$IMG_DIR/$BB_IMAGE_PXE"
 	NBD_IMAGE=""
 	ISO_IMAGE=""
 	BOOT_DIR=""
 	. $IMG_CFG
+	[ ! -r "$USR_IMG_CFG" ] || . $USR_IMG_CFG
 	if [ "$NBD_IMAGE" ] && [ -r "$NBD_IMAGE" ] ; then
+		belceboot-nbd $FORCE update "$NBD_IMAGE"
 		belceboot-nbd $FORCE export "$NBD_IMAGE"
 	elif [ "$ISO_IMAGE" ] && [ -r "$ISO_IMAGE" ] ; then
 		echo " TODO: write belceboot-iso ...."
